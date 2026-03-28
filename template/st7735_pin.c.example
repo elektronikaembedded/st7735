@@ -1,0 +1,159 @@
+/*******************************************************************************
+ * @file        st7735_pin.c.example
+ * @brief       ST7735 GPIO control template
+ *
+ * @details
+ * This file provides a template implementation of the ST7735 pin interface.
+ *
+ * Copy this file to your project:
+ *   port/st7735_pin/st7735_pin_<platform>.c
+ *
+ * Then update the GPIO control functions using your platform SDK
+ * (STM32 HAL, ESP-IDF, Zephyr, etc.).
+ *
+ * Example:
+ *   - STM32  -> HAL_GPIO_WritePin()
+ *   - ESP32  -> gpio_set_level()
+ ******************************************************************************/
+
+/*******************************************************************************
+ * Includes
+ *******************************************************************************/
+#include "st7735_pin.h"
+
+/*******************************************************************************
+ * User Configuration
+ *******************************************************************************/
+/*
+ * Replace these macros or implement direct GPIO calls depending on your platform
+ *
+ * Example (STM32):
+ *   #define ST7735_CS_PORT   GPIOB
+ *   #define ST7735_CS_PIN    GPIO_PIN_0
+ *
+ * Example (ESP32):
+ *   #define ST7735_CS_GPIO   5
+ */
+
+/*******************************************************************************
+ * Static Functions (GPIO Control)
+ *******************************************************************************/
+
+/**
+ * @brief Set CS pin LOW
+ */
+static int ctl_cs_pin_low(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    /* Example:
+       HAL_GPIO_WritePin(ST7735_CS_PORT, ST7735_CS_PIN, GPIO_PIN_RESET);
+    */
+    return 0;
+}
+
+/**
+ * @brief Set CS pin HIGH
+ */
+static int ctl_cs_pin_high(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    return 0;
+}
+
+/**
+ * @brief Set DC pin LOW (command mode)
+ */
+static int ctl_dc_pin_low(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    return 0;
+}
+
+/**
+ * @brief Set DC pin HIGH (data mode)
+ */
+static int ctl_dc_pin_high(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    return 0;
+}
+
+/**
+ * @brief Set RESET pin LOW
+ */
+static int ctl_reset_pin_low(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    return 0;
+}
+
+/**
+ * @brief Set RESET pin HIGH
+ */
+static int ctl_reset_pin_high(st7735_pin_t *pin)
+{
+    /* TODO: Replace with your GPIO write */
+    return 0;
+}
+
+/*******************************************************************************
+ * Ops Table
+ *******************************************************************************/
+
+/**
+ * @brief Default pin operations
+ *
+ * Users can either:
+ *  1. Use this default implementation (after filling TODOs)
+ *  2. Provide their own custom ops table
+ */
+static const st7735_pin_ops_t st7735_pin_ops =
+{
+    .cs_pin_low     = ctl_cs_pin_low,
+    .cs_pin_high    = ctl_cs_pin_high,
+    .dc_pin_low     = ctl_dc_pin_low,
+    .dc_pin_high    = ctl_dc_pin_high,
+    .reset_pin_low  = ctl_reset_pin_low,
+    .reset_pin_high = ctl_reset_pin_high,
+};
+
+/*******************************************************************************
+ * Public API
+ *******************************************************************************/
+
+/**
+ * @brief Get default pin operations
+ */
+const st7735_pin_ops_t *get_st7735_pin_ops(void)
+{
+    return &st7735_pin_ops;
+}
+
+/**
+ * @brief Initialize pin interface
+ *
+ * @param st7735_pin Pointer to pin handle
+ * @param ops        Operations table (can be NULL to use default)
+ *
+ * @return 0 on success, negative on error
+ */
+int st7735_pin_init(st7735_pin_t *st7735_pin,
+                    const st7735_pin_ops_t *ops)
+{
+    if (st7735_pin == NULL)
+        return -1;
+
+    if (ops == NULL)
+    {
+        /* Use default ops */
+        st7735_pin->ops = &st7735_pin_ops;
+    }
+    else
+    {
+        st7735_pin->ops = ops;
+    }
+
+    return 0;
+}
+
+/****************************** End of file ***********************************/
