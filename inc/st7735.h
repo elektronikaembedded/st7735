@@ -121,6 +121,10 @@ typedef struct
     st7735_err_t (*set_orientation)(st7735_t *dev,
                                     st7735_rotation_t orient);
 
+    st7735_err_t (*set_window) (st7735_t *dev,
+                                          uint16_t xs, uint16_t ys,
+                                          uint16_t xe, uint16_t ye);
+
     st7735_err_t (*draw_pixel)(st7735_t *dev,
                                uint16_t xpos,
                                uint16_t ypos,
@@ -195,7 +199,7 @@ st7735_err_t st7735_start(st7735_t *dev);
 st7735_err_t st7735_set_orientation(st7735_t *dev, st7735_rotation_t rot);
 st7735_err_t st7735_fill_color(st7735_t *dev, st7735_color_t color);
 
-
+void lvgl_display_init(st7735_t *dev);
 /**
  * @brief Get driver operations table
  *

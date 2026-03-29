@@ -100,6 +100,7 @@ static const st7735_opts_t st7735_opts =
     .init = fn_init,
     .de_init = fn_deinit,
     .set_orientation = fn_set_orientation,
+	.set_window = st7735_set_window,
     .draw_pixel = fn_draw_pixel,
     .fill_rect = fn_fill_rect,
     .fill_color = fn_fill_screen
@@ -136,7 +137,7 @@ st7735_err_t st7735_init(st7735_t *dev,
     dev->x_offset = 0;
     dev->y_offset = 0;
 
-    dev->orientation = ST7735_ROT_0;
+    //dev->orientation = ST7735_ROT_0;
 
     return ST7735_OK;
 }
@@ -186,39 +187,51 @@ static st7735_err_t fn_set_orientation(st7735_t *dev,
     switch (orient)
     {
         case ST7735_ROT_0:
-            madctl = 0x00;
+            madctl = 0x00; // RGB
             dev->screen_width  = dev->width;
             dev->screen_height = dev->height;
+
+            dev->x_offset = 0;
+            dev->y_offset = 0;
             break;
 
         case ST7735_ROT_90:
-            madctl = 0xA0;
+            madctl = 0x60; // MV | MX
+
             dev->screen_width  = dev->height;
             dev->screen_height = dev->width;
+
+            dev->x_offset = 0;
+            dev->y_offset = 0;
             break;
 
         case ST7735_ROT_180:
-            madctl = 0xC0;
+            madctl = 0xC0; // MX | MY
+
             dev->screen_width  = dev->width;
             dev->screen_height = dev->height;
+
+            dev->x_offset = 0;
+            dev->y_offset = 0;
             break;
 
         case ST7735_ROT_270:
-            madctl = 0x60;
+            madctl = 0xA0; // MV | MY
+
             dev->screen_width  = dev->height;
             dev->screen_height = dev->width;
+
+            dev->x_offset = 0;
+            dev->y_offset = 0;
             break;
-        default:
-            madctl = 0x00;
-            dev->screen_width  = dev->width;
-            dev->screen_height = dev->height;
-        	break;
     }
 
     ST7735_CHECK_RC(st7735_write_data(dev, madctl));
+
     dev->orientation = orient;
 
     dev->pin->ops->cs_pin_high(dev->pin);
+
     return ST7735_OK;
 }
 
@@ -257,8 +270,21 @@ static st7735_err_t fn_fill_rect(st7735_t *dev,
     uint16_t x1 = x + w - 1;
     uint16_t y1 = y + h - 1;
 
-    uint8_t hi = color >> 8;
-    uint8_t lo = color & 0xFF;
+//    uint8_t hi = color >> 8;
+//    uint8_t lo = color & 0xFF;
+
+    uint16_t c = color;
+
+    /* Swap RED and BLUE channels */
+    uint16_t r = (c & 0xF800) >> 11;
+    uint16_t g = (c & 0x07E0);
+    uint16_t b = (c & 0x001F) << 11;
+
+    uint16_t fixed = b | g | r;
+
+    uint8_t hi = fixed >> 8;
+    uint8_t lo = fixed & 0xFF;
+
 
     /* Prepare one line buffer */
     for (uint16_t i = 0; i < w; i++)
@@ -371,11 +397,13 @@ static st7735_err_t st7735_set_window(st7735_t *dev,
     ST7735_CHECK_RC(st7735_write_cmd(dev, ST7735_CMD_CASET));
     buf[0] = xs >> 8; buf[1] = xs;
     buf[2] = xe >> 8; buf[3] = xe;
+    dev->pin->ops->dc_pin_high(dev->pin);
     ST7735_CHECK_RC(st7735_write_bytes(dev, buf, 4));
 
     ST7735_CHECK_RC(st7735_write_cmd(dev, ST7735_CMD_RASET));
     buf[0] = ys >> 8; buf[1] = ys;
     buf[2] = ye >> 8; buf[3] = ye;
+    dev->pin->ops->dc_pin_high(dev->pin);
     ST7735_CHECK_RC(st7735_write_bytes(dev, buf, 4));
 
     ST7735_CHECK_RC(st7735_write_cmd(dev, ST7735_CMD_RAMWR));
@@ -435,5 +463,6 @@ st7735_err_t st7735_fill_color(st7735_t *dev, st7735_color_t color)
 
     return dev->opts->fill_color(dev, color);
 }
+
 
 
