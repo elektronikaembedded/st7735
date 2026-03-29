@@ -1,0 +1,184 @@
+/*******************************************************************************
+ * @file    st7735_lvgl_port.c
+ * @brief   LVGL port for ST7735
+ *******************************************************************************/
+
+#include "st7735.h"
+#include "lvgl.h"
+#include "lv_conf.h"
+
+#define MY_DISP_HOR_RES ST7735_PIXEL_WIDTH_HORIZONTAL
+#define MY_DISP_VER_RES ST7735_PIXEL_HEIGHT_VERTICAL
+
+#define LVGL_BUF_LINES 10
+#define USE_SINGLEBUFF
+
+static lv_disp_drv_t disp_drv;
+static lv_disp_draw_buf_t disp_buf;
+
+#ifdef USE_SINGLEBUFF
+static lv_color_t buf_1[MY_DISP_HOR_RES * LVGL_BUF_LINES];
+#else
+static lv_color_t buf_1[MY_DISP_HOR_RES * LVGL_BUF_LINES];
+static lv_color_t buf_2[MY_DISP_HOR_RES * LVGL_BUF_LINES];
+#endif
+
+static void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p);
+
+void lvgl_display_init(st7735_t *dev)
+{
+#ifdef USE_SINGLEBUFF
+    lv_disp_draw_buf_init(&disp_buf, buf_1, NULL,
+                          MY_DISP_HOR_RES * LVGL_BUF_LINES);
+#else
+    lv_disp_draw_buf_init(&disp_buf, buf_1, buf_2,
+                          MY_DISP_HOR_RES * LVGL_BUF_LINES);
+#endif
+
+    lv_disp_drv_init(&disp_drv);
+
+    disp_drv.hor_res = MY_DISP_HOR_RES;
+    disp_drv.ver_res = MY_DISP_VER_RES;
+    disp_drv.flush_cb = disp_flush;
+    disp_drv.draw_buf = &disp_buf;
+    disp_drv.user_data = dev;
+
+    /* we use HW rotation */
+    disp_drv.sw_rotate = 0;
+
+    lv_disp_t *disp = lv_disp_drv_register(&disp_drv);
+
+    lv_disp_set_rotation(disp, dev->orientation);
+}
+
+
+static void disp_flush(lv_disp_drv_t *drv,
+                       const lv_area_t *area,
+                       lv_color_t *color_p)
+{
+    st7735_t *dev = (st7735_t *)drv->user_data;
+
+    int32_t x1 = area->x1 < 0 ? 0 : area->x1;
+    int32_t y1 = area->y1 < 0 ? 0 : area->y1;
+    int32_t x2 = area->x2 >= MY_DISP_HOR_RES ? (MY_DISP_HOR_RES - 1) : area->x2;
+    int32_t y2 = area->y2 >= MY_DISP_VER_RES ? (MY_DISP_VER_RES - 1) : area->y2;
+
+    if (x2 < x1 || y2 < y1)
+    {
+        lv_disp_flush_ready(drv);
+        return;
+    }
+
+    uint32_t w = x2 - x1 + 1;
+    uint32_t h = y2 - y1 + 1;
+    uint32_t px_cnt = w * h;
+
+    if (px_cnt == 0)
+    {
+        lv_disp_flush_ready(drv);
+        return;
+    }
+
+    /* Select display */
+    dev->pin->ops->cs_pin_low(dev->pin);
+
+    /* Set window */
+    dev->opts->set_window(dev, x1, y1, x2, y2);
+
+    /* Data mode */
+    dev->pin->ops->dc_pin_high(dev->pin);
+
+    /* Send LVGL buffer directly */
+    dev->bus_spi->ops->write(dev->bus_spi,
+                             (uint8_t *)color_p,
+                             px_cnt * sizeof(lv_color_t));
+
+    /* Deselect */
+    dev->pin->ops->cs_pin_high(dev->pin);
+
+    lv_disp_flush_ready(drv);
+}
+
+
+void lvgl_test_shapes_and_lines(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+
+    /* STEP 1: Clear screen (Black) */
+    lv_obj_clean(scr);
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+    lv_timer_handler();
+    HAL_Delay(1000);
+
+    /* STEP 2: Draw Rectangle (RED) */
+    lv_obj_t *rect = lv_obj_create(scr);
+    lv_obj_set_size(rect, 80, 50);
+    lv_obj_center(rect);
+    lv_obj_set_style_bg_color(rect, lv_color_hex(0xF800), 0);
+    lv_obj_set_style_border_width(rect, 0, 0);
+
+    lv_timer_handler();
+    HAL_Delay(1000);
+
+    /* STEP 3: Draw Circle (GREEN) */
+    lv_obj_t *circle = lv_obj_create(scr);
+    lv_obj_set_size(circle, 50, 50);
+    lv_obj_align(circle, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(circle, lv_color_hex(0x07E0), 0);
+    lv_obj_set_style_border_width(circle, 0, 0);
+
+    lv_timer_handler();
+    HAL_Delay(1000);
+
+    /* STEP 4: Draw Line (BLUE diagonal) */
+    static lv_point_t line_points[] = {
+        {0, 0},
+        {MY_DISP_HOR_RES - 1, MY_DISP_VER_RES - 1}
+    };
+
+    lv_obj_t *line = lv_line_create(scr);
+    lv_line_set_points(line, line_points, 2);
+
+    lv_obj_set_style_line_color(line, lv_color_hex(0x001F), 0);
+    lv_obj_set_style_line_width(line, 3, 0);
+
+    lv_timer_handler();
+    HAL_Delay(1000);
+
+    /* STEP 5: Cross lines (WHITE) */
+    static lv_point_t line2_points[] = {
+        {MY_DISP_HOR_RES - 1, 0},
+        {0, MY_DISP_VER_RES - 1}
+    };
+
+    lv_obj_t *line2 = lv_line_create(scr);
+    lv_line_set_points(line2, line2_points, 2);
+
+    lv_obj_set_style_line_color(line2, lv_color_hex(0xFFFF), 0);
+    lv_obj_set_style_line_width(line2, 2, 0);
+
+    lv_timer_handler();
+    HAL_Delay(1000);
+
+    /* STEP 6: Multiple small boxes (Color test grid) */
+    lv_obj_clean(scr);
+
+    int box_size = 20;
+    for (int y = 0; y < MY_DISP_VER_RES; y += box_size)
+    {
+        for (int x = 0; x < MY_DISP_HOR_RES; x += box_size)
+        {
+            lv_obj_t *box = lv_obj_create(scr);
+            lv_obj_set_size(box, box_size - 2, box_size - 2);
+            lv_obj_set_pos(box, x, y);
+
+            uint16_t color = ((x * y) & 0xFFFF); // pseudo pattern
+            lv_obj_set_style_bg_color(box, lv_color_hex(color), 0);
+            lv_obj_set_style_border_width(box, 0, 0);
+        }
+    }
+
+    lv_timer_handler();
+    HAL_Delay(2000);
+}
